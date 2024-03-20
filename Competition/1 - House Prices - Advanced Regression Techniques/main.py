@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import pandas as pd
 import tensorflow as tf
 from tensorflow import keras
@@ -162,6 +163,8 @@ class Model:
 if __name__ == "__main__":
     housingData = HousingData('train.csv')  # Load the data
     model = Model(housingData.train_x, housingData.train_y, housingData.validation_x, housingData.validation_y)
+    plt.    
+    
     #model.fit()
     
 

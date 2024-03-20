@@ -7,38 +7,6 @@ class DataSet:
         self.file_name = file_name
         self.source = self.load_data()    
         
-    def analyze_features(df):
-            """
-            Analyzes features of a pandas dataframe.
-
-            Parameters:
-            - df: pandas.DataFrame
-
-            Prints:
-            - Feature name
-            - Percentage of NaN or None values
-            - Value distribution summary (for numeric features)
-            - Unique values (for categorical features with fewer than 10 unique values)
-            """
-            for column in df.columns:
-                # NaN or None percentages
-                nan_percentage = df[column].isnull().mean() * 100
-                
-                print(f"Feature: {column}")
-                print(f"Percentage of NaN/None values: {nan_percentage:.2f}%")
-                
-                # If numeric, show distribution summary
-                if pd.api.types.is_numeric_dtype(df[column]):
-                    print("Value distribution summary:")
-                    print(df[column].describe())
-                else:
-                    # For categorical data, if fewer than 10 unique values, show them
-                    unique_values = df[column].unique()
-                    if len(unique_values) <= 10:
-                        print("Unique values:")
-                        print(unique_values)
-                print("-" * 40)
-        
     def compare_sets(df_1: pd.DataFrame, df_2: pd.DataFrame) -> None:
         # Compare the features in the training and verification sets
         df_1_features = set(df_1.columns)
@@ -54,6 +22,8 @@ class DataSet:
         # Load the data from the 'train.csv' file
         df = pd.read_csv('train.csv')
         return df
+    
+    def plot()
     
     def make_dependent_datasets(self) -> None:
         self.train_Y = self.train_X[['SalePrice']]
