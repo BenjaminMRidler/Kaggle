@@ -1,170 +1,57 @@
-import matplotlib.pyplot as plt
-import pandas as pd
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import layers
-from tensorflow.keras.optimizers import Adam, SGD, RMSprop, Adagrad, Adadelta, Adamax, Nadam, Ftrl
+import lib.utility as util
+import lib.data as data
+from rich import print
+from rich.columns import Columns
+from rich.console import Console
+from rich.panel import Panel
+from lib.utility import yellow, green, red, cyan, white
 
-import dataset as ds
-from dataset import DataSet
-from features import Features
+def main():
+    # Load the data
+    df = data.load_data('data/train.csv')
+    Console().clear()
+    
+    ### Remove columns with significant missing data
+    print(yellow('Remove columns with significant missing data'))
+    columns_to_fix_series = data.analyze_missing_data(df)
+    
+    remove_columns = []
+    threshold = .5
+    for column in columns_to_fix_series.index:
+        if columns_to_fix_series[column] > threshold:
+            remove_columns.append(column)
+    
+    df = data.remove_columns(df, remove_columns)
+    
+    ### Verify that the columns have been removed. 
+    print(yellow('Verify removal'))
+    columns_to_fix_series = data.analyze_missing_data(df)
 
-class HousingData(DataSet):
-    def __init__(self, file_name: str) -> None:
-        super().__init__(file_name)
-        self.build_features()
-        self.split_data()
-        self.make_dependent_datasets()
-
-    def build_features(self) -> None:
+    ### Create a dataset with columns can be used for analysis and imputing
+    temp_normalized_df = data.prepare_data(df)
+    columns_to_fix_series = data.analyze_missing_data(df)
+    ### Fix the remaining columns that are missing data
+    columns_to_fix_df = df[columns_to_fix_series.index]
+    
+    ### iterate through each column-to-be-fixed and analyze the impactful features
+    for impute_target in columns_to_fix_df.columns:
         
-        f = Features()
-
-        features = pd.DataFrame()
-        features = pd.concat([features, self.source['SalePrice']], axis=1)
-            
-        #features = add_one_hot_features(source, features, 'MSSubClass')
-        features = f.add_one_hot_features(self.source, features, 'MSZoning')
-        #features = normalize_feature_Standard(source, features, 'LotFrontage')
-        features = f.normalize_feature_Standard(self.source, features, 'LotArea')
-        #features = add_one_hot_features(source, features, 'Street')
-        #features = add_one_hot_features(source, features, 'Alley')
-        #features = add_one_hot_features(source, features, 'LotShape')
-        #features = add_one_hot_features(source, features, 'LandContour')
-        #features = add_one_hot_features(source, features, 'Utilities')
-        #features = add_one_hot_features(source, features, 'LotConfig')
-        #features = add_one_hot_features(source, features, 'LandSlope')
-        features = f.add_one_hot_features(self.source, features, 'Neighborhood')
-        #features = add_one_hot_features(source, features, 'Condition1')
-        #features = add_one_hot_features(source, features, 'Condition2')
-        features = f.add_one_hot_features(self.source, features, 'BldgType')
-        #features = add_one_hot_features(source, features, 'HouseStyle')
-        #features = normalize_feature(source, features, 'OverallQual')
+        impactful_features_df, _ = data.make_impactful_feature_model(impute_target, df, temp_normalized_df)
+        text = f"{red(f'Impact Ranking: {impactful_features_df}\n')}"
         
-        features = f.add_one_hot_features(self.source, features, 'OverallCond')
-        #features = add_one_hot_features(source, features, 'OverallCond')
+        impactful_features_df = impactful_features_df[impactful_features_df['Importance'] > 0.05]
+        impactful_features_list = impactful_features_df['Feature'].tolist()
         
-        #features = add_age_features(source, features, 'YearBuilt')
-        features = f.add_age_features(self.source, features, 'YearRemodAdd', 10)
-        #features = add_one_hot_features(source, features, 'RoofStyle')
-        #features = add_one_hot_features(source, features, 'RoofMatl')
-        #features = add_one_hot_features(source, features, 'Exterior1st')
-        #features = add_one_hot_features(source, features, 'Exterior2nd')
-        # features = add_one_hot_features(source, features, 'MasVnrType')
-        # features = normalize_feature(source, features, 'MasVnrArea')
-        #features = ordinal_encode_normalize(source, features, 'ExterQual', ['Po', 'Fa', 'TA', 'Gd', 'Ex'])
-
-        features = f.add_one_hot_features(self.source, features, 'ExterCond')
-        #features = ordinal_encode_normalize(source, features, 'ExterCond', ['Po', 'Fa', 'TA', 'Gd', 'Ex'])
-
-        features = f.add_one_hot_features(self.source, features, 'Foundation')
-        #features = ordinal_encode_normalize(source, features, 'BsmtQual', ['Po', 'Fa', 'TA', 'Gd', 'Ex'])
-        #features = ordinal_encode_normalize(source, features, 'BsmtCond', ['Po', 'Fa', 'TA', 'Gd', 'Ex'])
-        #features = ordinal_encode_normalize(source, features, 'BsmtExposure', ['No', 'Mn', 'Av', 'Gd'])
-        #features = ordinal_encode_normalize(source, features, 'BsmtFinType1', ['No', 'Unf', 'LwQ', 'Rec', 'BLQ', 'ALQ', 'GLQ'])
-        #features = normalize_feature(source, features, 'BsmtFinSF1')
-        features = f.add_one_hot_features(self.source, features, 'BsmtFinType2')
-        #features = normalize_feature(source, features, 'BsmtFinSF2')
-        #features = normalize_feature(source, features, 'BsmtUnfSF')
-        features = f.normalize_feature_Standard(self.source, features, 'TotalBsmtSF')
-        #features = add_one_hot_features(source, features, 'Heating')
-        #features = ordinal_encode_normalize(source, features, 'HeatingQC', ['Po', 'Fa', 'TA', 'Gd', 'Ex'])
+        text += f"{red(f'Selected columns: {impactful_features_df}\n')}"
+        text += f"Before Imputation: {df[impute_target].head().transpose()}\n"
+        df, temp_normalized_df = data.impute_missing_data(impute_target, df, temp_normalized_df, impactful_features_list)
+        text += f"After Imputation: {df[impute_target].head().transpose()}\n"
         
-        features = f.add_one_hot_features(self.source, features, 'CentralAir')
-        #features = ordinal_encode_normalize(source, features, 'CentralAir', ['N', 'Y'])
+        print(Panel(text, title=f'Column: {impute_target}', border_style="bright_cyan"))
         
-        #features = add_one_hot_features(source, features, 'Electrical')
-        #features = normalize_feature(source, features, '1stFlrSF')
-        #features = normalize_feature(source, features, '2ndFlrSF')
-        #features = normalize_feature(source, features, 'LowQualFinSF')
-        features = f.normalize_feature_Standard(self.source, features, 'GrLivArea')
-        #features = normalize_feature(source, features, 'BsmtFullBath')
-        #features = normalize_feature(source, features, 'BsmtHalfBath')
-        features = f.add_one_hot_features(self.source, features, 'FullBath')
-        #features = add_one_hot_features(source, features, 'HalfBath')
-        features = f.add_one_hot_features(self.source, features, 'BedroomsAbvGr')
-        #features = add_one_hot_features(source, features, 'KitchenAbvGr')
+    pass
         
-        features = f.add_one_hot_features(self.source, features, 'KitchenQual')
-        #features = ordinal_encode_normalize(source, features, 'KitchenQual', ['Po', 'Fa', 'TA', 'Gd', 'Ex'])
-        
-        features = f.add_one_hot_features(self.source, features, 'TotRmsAbvGrd')
-        #features = ordinal_encode_normalize(source, features, 'Functional', ['Sal', 'Sev', 'Maj2', 'Maj1', 'Mod', 'Min2', 'Min1', 'Typ'])
-        #features = add_one_hot_features(source, features, 'Fireplaces')
-        #features = ordinal_encode_normalize(source, features, 'FireplaceQu', ['Po', 'Fa', 'TA', 'Gd', 'Ex'])    
-        #features = add_one_hot_features(source, features, 'GarageType')
-        #features = add_age_features(source, features, 'GarageYrBlt')
-        #features = ordinal_encode_normalize(source, features, 'GarageFinish', ['Unf', 'RFn', 'Fin'])   
-        
-        features = f.add_one_hot_features(self.source, features, 'GarageCars')
-        
-        #features = normalize_feature(source, features, 'GarageArea')
-        #features = ordinal_encode_normalize(source, features, 'GarageQual', ['Po', 'Fa', 'TA', 'Gd', 'Ex'])
-
-        #features = add_one_hot_features(source, features, 'GarageCond')
-        
-        #features = add_one_hot_features(source, features, 'PavedDrive')
-        #features = ordinal_encode_normalize(source, features, 'PavedDrive', ['N', 'P', 'Y'])
-        
-        #features = normalize_feature(source, features, 'WoodDeckSF')
-        #features = normalize_feature(source, features, 'OpenPorchSF')
-        #features = normalize_feature(source, features, 'EnclosedPorch')
-        #features = normalize_feature(source, features, '3SsnPorch')
-        #features = normalize_feature(source, features, 'ScreenPorch')
-        #features = normalize_feature(source, features, 'PoolArea')
-        
-        #features = add_one_hot_features(source, features, 'PoolQC')
-        #features = ordinal_encode_normalize(source, features, 'PoolQC', ['Po', 'Fa', 'TA', 'Gd', 'Ex'])
-        
-        #features = ordinal_encode_normalize(source, features, 'Fence', ['MnWw', 'GdWo', 'MnPrv', 'GdPrv'])
-        #features = add_one_hot_features(source, features, 'MiscFeature')
-        #features = normalize_feature(source, features, 'MiscVal')
-        features = f.add_one_hot_features(self.source, features, 'MoSold')
-        
-        #features = add_age_features(source, features, 'YrSold', 5)
-        
-        #features = add_one_hot_features(source, features, 'SaleType')
-        #features = add_one_hot_features(source, features, 'SaleCondition')
-
-        return features
-
-class Model:
-    def __init__(self, train_x: pd.DataFrame, train_y: pd.DataFrame, validation_x: pd.DataFrame, validation_y: pd.DataFrame):
-        self.train_x = train_x
-        self.train_y = train_y
-        self.validation_x = validation_x
-        self.validation_y = validation_y
-        self.input_shape = (train_x.shape[1],)
-        self.build_regression_model()
-
-    def build_regression_model(self):
-        model = keras.Sequential([
-            layers.InputLayer(input_shape=self.input_shape),
-            layers.Dense(128, activation='relu'),
-            layers.Dense(64, activation='relu'),
-            layers.Dense(16, activation='relu'),
-            layers.Dense(1)
-        ])
-
-        model.compile(optimizer=Adam(learning_rate=.025), loss='mean_squared_error',metrics=['mae'])
-
-        self.model = model
-
-    def fit(self):
-        self.model.fit(self.train_features, self.train_dependent, epochs=50, batch_size=100, verbose=1,\
-            validation_data=(self.verification_features, self.verification_dependent))
-
-    def summary(self):
-        if self.model is not None:
-            self.model.summary()
-
-
-# Verify the shapes of the training and verification sets
+    
+    
 if __name__ == "__main__":
-    housingData = HousingData('train.csv')  # Load the data
-    model = Model(housingData.train_x, housingData.train_y, housingData.validation_x, housingData.validation_y)
-    plt.    
-    
-    #model.fit()
-    
-
+    main()  

@@ -23,8 +23,6 @@ class DataSet:
         df = pd.read_csv('train.csv')
         return df
     
-    def plot()
-    
     def make_dependent_datasets(self) -> None:
         self.train_Y = self.train_X[['SalePrice']]
         self.verification_Y = self.verification_X[['SalePrice']]
